@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: codechampion-codesanbox
+server:
+  port: 8082
