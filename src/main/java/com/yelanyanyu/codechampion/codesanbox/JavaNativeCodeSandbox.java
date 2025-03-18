@@ -1,11 +1,14 @@
 package com.yelanyanyu.codechampion.codesanbox;
 
 
+import ch.qos.logback.core.util.StringUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.io.resource.ResourceUtil;
+import cn.hutool.core.util.StrUtil;
 import com.yelanyanyu.codechampion.codesanbox.model.ExecuteCodeRequest;
 import com.yelanyanyu.codechampion.codesanbox.model.ExecuteCodeResponse;
 import com.yelanyanyu.codechampion.codesanbox.model.ExecuteMessage;
+import com.yelanyanyu.codechampion.codesanbox.model.JudgeInfo;
 import com.yelanyanyu.codechampion.codesanbox.util.ProcessUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -15,6 +18,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -33,7 +37,6 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
     private static final String GLOBAL_JAVA_CLASS_NAME = "Main.java";
     @Value("${codesandbox.compile-config.java-class-name}")
     private String javaClassName;
-
 
 
     @Override
@@ -59,9 +62,9 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
             FileUtil.mkdir(globalCodePathName);
         }
         // 将用户代码隔离存放，具体方法是为每个用户生成一个临时文件夹，再将用户执行的相关文件放入这个文件夹
-        String userCodeParentPath = globalCodePathName + File.separator + UUID.randomUUID();
+        String userCodeParentPathDir = globalCodePathName + File.separator + UUID.randomUUID();
         // 得到用户的代码的绝对路劲，并将用户提交的字符串 code 写入这个文件
-        String userCodePath = userCodeParentPath + File.separator + javaClassName;
+        String userCodePath = userCodeParentPathDir + File.separator + javaClassName;
         File userCodeFile = FileUtil.writeString(code, userCodePath, StandardCharsets.UTF_8);
         // 编译代码
         String compiledCmd = String.format("javac -encoding utf-8 %s", userCodeFile.getAbsoluteFile());
@@ -75,16 +78,48 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
         }
 
         // 执行代码
+        List<ExecuteMessage> executeMessages = new ArrayList<>();
         for (String inputArgs : inputList) {
-            String runCmd = String.format("java -Dfile.encoding=UTF-8 -cp %s Main %s", userCodeParentPath, inputArgs);
+            String runCmd = String.format("java -Dfile.encoding=UTF-8 -cp %s Main %s", userCodeParentPathDir, inputArgs);
             try {
                 Process runProcess = Runtime.getRuntime().exec(runCmd);
-//                ExecuteMessage executeMessage = runProcessAndGetMsg(runProcess, "运行");
-                ExecuteMessage executeMessage = runProcessAndGetMsgWithInteraction(runProcess, "1 2");
+                ExecuteMessage executeMessage = runProcessAndGetMsg(runProcess, "运行");
+//                ExecuteMessage executeMessage = runProcessAndGetMsgWithInteraction(runProcess, "1 2");
                 System.out.println(executeMessage);
+                executeMessages.add(executeMessage);
             } catch (IOException | InterruptedException e) {
                 throw new RuntimeException(e);
             }
+        }
+        // 收集信息
+        List<String> outputList = new ArrayList<>();
+        long maxTime = 0;
+        for (ExecuteMessage executeMessage : executeMessages) {
+            String errorMessage = executeMessage.getErrorMessage();
+            if (!StrUtil.isBlankIfStr(errorMessage)) {
+                executeCodeResponse.setMessage(errorMessage);
+                executeCodeResponse.setStatus(3);
+                break;
+            }
+            outputList.add(executeMessage.getNormalMessage());
+            Long time = executeMessage.getTime();
+            if (time != null) {
+                maxTime = Math.max(maxTime, time);
+            }
+        }
+
+        if (outputList.size() == executeMessages.size()) {
+            executeCodeResponse.setStatus(1);
+        }
+        executeCodeResponse.setOutput(outputList);
+        JudgeInfo judgeInfo = new JudgeInfo();
+        judgeInfo.setTime(maxTime);
+        executeCodeResponse.setJudgeInfo(judgeInfo);
+
+        // 清理执行文件
+        if (userCodeFile.getParentFile() != null) {
+            boolean del = FileUtil.del(userCodeParentPathDir);
+            System.out.println("删除" + (del ? "成功" : "失败"));
         }
         return executeCodeResponse;
     }

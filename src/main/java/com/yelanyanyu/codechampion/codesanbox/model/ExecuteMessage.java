@@ -19,4 +19,8 @@ public class ExecuteMessage {
      * 程序错误执行信息
      */
     private String errorMessage;
+    /**
+     * 程序执行时间
+     */
+    private Long time;
 }

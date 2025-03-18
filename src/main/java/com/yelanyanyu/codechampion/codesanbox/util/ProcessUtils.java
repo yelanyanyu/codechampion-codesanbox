@@ -1,6 +1,7 @@
 package com.yelanyanyu.codechampion.codesanbox.util;
 
 
+import cn.hutool.core.date.StopWatch;
 import cn.hutool.core.util.StrUtil;
 import com.yelanyanyu.codechampion.codesanbox.model.ExecuteMessage;
 
@@ -27,6 +28,8 @@ public class ProcessUtils {
 
     public static ExecuteMessage runProcessAndGetMsg(Process runProcess, String opName) throws InterruptedException {
         ExecuteMessage executeMessage = new ExecuteMessage();
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
         int exitValue = runProcess.waitFor();
         executeMessage.setExitValue(exitValue);
         if (exitValue == 0) {
@@ -50,6 +53,8 @@ public class ProcessUtils {
                     .collect(Collectors.joining("\n"));
             executeMessage.setErrorMessage(errorCompileOutput);
         }
+        stopWatch.stop();
+        executeMessage.setTime(stopWatch.getLastTaskTimeMillis());
         return executeMessage;
     }
 
@@ -63,6 +68,8 @@ public class ProcessUtils {
      */
     public static ExecuteMessage runProcessAndGetMsgWithInteraction(Process runProcess, String args) throws InterruptedException {
         ExecuteMessage executeMessage = new ExecuteMessage();
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
         try {
             //向控制台输入程序
             OutputStream outputStream = runProcess.getOutputStream();
@@ -87,6 +94,8 @@ public class ProcessUtils {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        stopWatch.stop();
+        executeMessage.setTime(stopWatch.getLastTaskTimeMillis());
         return executeMessage;
     }
 }
