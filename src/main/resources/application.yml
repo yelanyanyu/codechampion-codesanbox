@@ -3,3 +3,6 @@ spring:
     name: codechampion-codesanbox
 server:
   port: 8082
+codesandbox:
+  compile-config:
+    java-class-name: Main.java
