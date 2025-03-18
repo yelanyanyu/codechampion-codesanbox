@@ -5,6 +5,7 @@ import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.io.resource.ResourceUtil;
 import com.yelanyanyu.codechampion.codesanbox.model.ExecuteCodeRequest;
 import com.yelanyanyu.codechampion.codesanbox.model.ExecuteCodeResponse;
+import com.yelanyanyu.codechampion.codesanbox.model.ExecuteMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 @Component
 public class JavaNativeCodeSandbox implements CodeSandbox {
     private static final String GLOBAL_CODE_DIR_NAME = "tmpCode";
+    private static final String GLOBAL_JAVA_CLASS_NAME = "Main.java";
     @Value("${codesandbox.compile-config.java-class-name}")
     private String javaClassName;
 
@@ -41,6 +43,34 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
         return builder;
     }
 
+    private static ExecuteMessage runProcessAndGetMsg(Process runProcess, String opName) throws InterruptedException {
+        ExecuteMessage executeMessage = new ExecuteMessage();
+        int exitValue = runProcess.waitFor();
+        executeMessage.setExitValue(exitValue);
+        if (exitValue == 0) {
+            // 正常退出
+            System.out.println(opName + "成功");
+
+            String normalCompileOutput = new BufferedReader(
+                    new InputStreamReader(
+                            runProcess.getInputStream()))
+                    .lines()
+                    .collect(Collectors.joining("\n"));
+            executeMessage.setNormalMessage(normalCompileOutput);
+        } else {
+            // 发生错误
+            System.out.println(opName + "失败，错误码" + exitValue);
+            // 逐行获取编译的正确信息
+            StringBuilder builder = getCompiledOutputFromCmd(runProcess);
+            // 逐行获取编译的错误信息
+            String errorCompileOutput = new BufferedReader(new InputStreamReader(runProcess.getErrorStream()))
+                    .lines()
+                    .collect(Collectors.joining("\n"));
+            executeMessage.setErrorMessage(errorCompileOutput);
+        }
+        return executeMessage;
+    }
+
     @Override
     public ExecuteCodeResponse execute(ExecuteCodeRequest executeCodeRequest) {
 /*
@@ -50,6 +80,8 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
         1. 执行成功，则将控制台输出格式化填入 response，并且返回控制台信息赋值给 message，和 judgeInfo。
         2. 如果执行失败，则从从控制台获取失败信息填入 response；
 */
+        ExecuteCodeResponse executeCodeResponse = new ExecuteCodeResponse();
+
         List<String> inputList = executeCodeRequest.getInput();
         String code = executeCodeRequest.getCode();
         String language = executeCodeRequest.getLanguage();
@@ -67,34 +99,27 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
         String userCodePath = userCodeParentPath + File.separator + javaClassName;
         File userCodeFile = FileUtil.writeString(code, userCodePath, StandardCharsets.UTF_8);
         // 编译代码
-        String compiledCmd = String.format("javac -encoding utf-8 %s", userCodeFile.getAbsolutePath());
+        String compiledCmd = String.format("javac -encoding utf-8 %s", userCodeFile.getAbsoluteFile());
+
         try {
             Process compiledProcess = Runtime.getRuntime().exec(compiledCmd);
-            int exitValue = compiledProcess.waitFor();
-            if (exitValue == 0) {
-                // 正常退出
-                System.out.println("编译成功");
-
-                String successCompileOutput = new BufferedReader(
-                        new InputStreamReader(
-                                compiledProcess.getInputStream()))
-                        .lines()
-                        .collect(Collectors.joining("\n"));
-                System.out.println(successCompileOutput);
-            } else {
-                // 发生错误
-                System.out.println("编译失败，错误码" + exitValue);
-                // 逐行获取编译的正确信息
-                StringBuilder builder = getCompiledOutputFromCmd(compiledProcess);
-                // 逐行获取编译的错误信息
-                String errorCompileOutput = new BufferedReader(new InputStreamReader(compiledProcess.getErrorStream()))
-                        .lines()
-                        .collect(Collectors.joining("\n"));
-                System.out.println(errorCompileOutput);
-            }
+            ExecuteMessage executeMessage = runProcessAndGetMsg(compiledProcess, "编译");
+            System.out.println(executeMessage);
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
         }
-        return null;
+
+        // 执行代码
+        for (String inputArgs : inputList) {
+            String runCmd = String.format("java -Dfile.encoding=UTF-8 -cp %s Main %s", userCodeParentPath, inputArgs);
+            try {
+                Process runProcess = Runtime.getRuntime().exec(runCmd);
+                ExecuteMessage executeMessage = runProcessAndGetMsg(runProcess, "运行");
+                System.out.println(executeMessage);
+            } catch (IOException | InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return executeCodeResponse;
     }
 }
