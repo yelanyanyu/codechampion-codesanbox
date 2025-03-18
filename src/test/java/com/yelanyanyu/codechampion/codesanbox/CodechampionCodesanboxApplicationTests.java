@@ -26,4 +26,9 @@ class CodechampionCodesanboxApplicationTests {
 		System.out.println(executeCodeResponse);
 	}
 
+	@Test
+	void t1WithInteraction() {
+
+	}
+
 }

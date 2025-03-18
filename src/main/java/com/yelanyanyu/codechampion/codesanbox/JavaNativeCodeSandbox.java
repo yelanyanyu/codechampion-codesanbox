@@ -6,6 +6,7 @@ import cn.hutool.core.io.resource.ResourceUtil;
 import com.yelanyanyu.codechampion.codesanbox.model.ExecuteCodeRequest;
 import com.yelanyanyu.codechampion.codesanbox.model.ExecuteCodeResponse;
 import com.yelanyanyu.codechampion.codesanbox.model.ExecuteMessage;
+import com.yelanyanyu.codechampion.codesanbox.util.ProcessUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +20,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import static com.yelanyanyu.codechampion.codesanbox.util.ProcessUtils.runProcessAndGetMsg;
+import static com.yelanyanyu.codechampion.codesanbox.util.ProcessUtils.runProcessAndGetMsgWithInteraction;
+
 /**
  * @author yelanyanyu@zjxu.edu.cn
  * @version 1.0
@@ -30,46 +34,7 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
     @Value("${codesandbox.compile-config.java-class-name}")
     private String javaClassName;
 
-    /**
-     * 分批获取进程的正常输出
-     *
-     * @param compiledProcess
-     * @return
-     */
-    private static StringBuilder getCompiledOutputFromCmd(Process compiledProcess) {
-        StringBuilder builder = new StringBuilder();
-        new BufferedReader(new InputStreamReader(compiledProcess.getInputStream()))
-                .lines().forEach((s -> builder.append(s).append("\n")));
-        return builder;
-    }
 
-    private static ExecuteMessage runProcessAndGetMsg(Process runProcess, String opName) throws InterruptedException {
-        ExecuteMessage executeMessage = new ExecuteMessage();
-        int exitValue = runProcess.waitFor();
-        executeMessage.setExitValue(exitValue);
-        if (exitValue == 0) {
-            // 正常退出
-            System.out.println(opName + "成功");
-
-            String normalCompileOutput = new BufferedReader(
-                    new InputStreamReader(
-                            runProcess.getInputStream()))
-                    .lines()
-                    .collect(Collectors.joining("\n"));
-            executeMessage.setNormalMessage(normalCompileOutput);
-        } else {
-            // 发生错误
-            System.out.println(opName + "失败，错误码" + exitValue);
-            // 逐行获取编译的正确信息
-            StringBuilder builder = getCompiledOutputFromCmd(runProcess);
-            // 逐行获取编译的错误信息
-            String errorCompileOutput = new BufferedReader(new InputStreamReader(runProcess.getErrorStream()))
-                    .lines()
-                    .collect(Collectors.joining("\n"));
-            executeMessage.setErrorMessage(errorCompileOutput);
-        }
-        return executeMessage;
-    }
 
     @Override
     public ExecuteCodeResponse execute(ExecuteCodeRequest executeCodeRequest) {
@@ -103,7 +68,7 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
 
         try {
             Process compiledProcess = Runtime.getRuntime().exec(compiledCmd);
-            ExecuteMessage executeMessage = runProcessAndGetMsg(compiledProcess, "编译");
+            ExecuteMessage executeMessage = ProcessUtils.runProcessAndGetMsg(compiledProcess, "编译");
             System.out.println(executeMessage);
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
@@ -114,7 +79,8 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
             String runCmd = String.format("java -Dfile.encoding=UTF-8 -cp %s Main %s", userCodeParentPath, inputArgs);
             try {
                 Process runProcess = Runtime.getRuntime().exec(runCmd);
-                ExecuteMessage executeMessage = runProcessAndGetMsg(runProcess, "运行");
+//                ExecuteMessage executeMessage = runProcessAndGetMsg(runProcess, "运行");
+                ExecuteMessage executeMessage = runProcessAndGetMsgWithInteraction(runProcess, "1 2");
                 System.out.println(executeMessage);
             } catch (IOException | InterruptedException e) {
                 throw new RuntimeException(e);
