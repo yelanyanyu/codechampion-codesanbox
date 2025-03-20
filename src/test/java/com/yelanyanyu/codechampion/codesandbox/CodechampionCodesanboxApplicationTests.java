@@ -13,7 +13,7 @@ import java.util.Arrays;
 @SpringBootTest
 class CodechampionCodesandboxApplicationTests {
 	@Resource
-	private JavaNativeCodeSandbox javaNativeCodeSandbox;
+	private JavaNativeCodeSandboxOld javaNativeCodeSandboxOld;
 
 	@Test
 	void contextLoads() {
@@ -22,7 +22,7 @@ class CodechampionCodesandboxApplicationTests {
 		String code = ResourceUtil.readStr("simpleCompute/Main.java", StandardCharsets.UTF_8);
 		executeCodeRequest.setCode(code);
 		executeCodeRequest.setLanguage("java");
-		ExecuteCodeResponse executeCodeResponse = javaNativeCodeSandbox.execute(executeCodeRequest);
+		ExecuteCodeResponse executeCodeResponse = javaNativeCodeSandboxOld.execute(executeCodeRequest);
 		System.out.println(executeCodeResponse);
 	}
 

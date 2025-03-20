@@ -1,31 +1,36 @@
 package com.yelanyanyu.codechampion.codesandbox.manager;
 
 
+import cn.hutool.core.date.StopWatch;
 import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.CreateContainerCmd;
-import com.github.dockerjava.api.command.CreateContainerResponse;
-import com.github.dockerjava.api.command.PullImageResultCallback;
+import com.github.dockerjava.api.async.ResultCallback;
+import com.github.dockerjava.api.command.*;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.exception.NotModifiedException;
-import com.github.dockerjava.api.model.HostConfig;
-import com.github.dockerjava.api.model.Image;
+import com.github.dockerjava.api.model.*;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientImpl;
+import com.github.dockerjava.core.command.ExecStartResultCallback;
 import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
 import com.github.dockerjava.transport.DockerHttpClient;
+import com.yelanyanyu.codechampion.codesandbox.model.ExecuteMessage;
 import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PreDestroy;
+import java.io.Closeable;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author yelanyanyu@zjxu.edu.cn
@@ -41,6 +46,8 @@ public class DockerManager implements ApplicationRunner {
     private boolean jdkImageAvailable = false;
     @Getter
     private DockerClient dockerClient;
+    @Value("${codesandbox.compile-config.timeout}")
+    private Long timeOut;
 
     private static DockerClient openDockerClient() {
         DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().build();
@@ -53,6 +60,97 @@ public class DockerManager implements ApplicationRunner {
                 .build();
 
         return DockerClientImpl.getInstance(config, httpClient);
+    }
+
+    public ExecuteMessage executeCommand(String[] cmdArray, String containerId) {
+        ExecuteMessage executeMessage = new ExecuteMessage();
+        ExecCreateCmdResponse execCreateCmdResponse = this.dockerClient.execCreateCmd(containerId)
+                .withCmd(cmdArray)
+                .withAttachStdout(true)
+                .withAttachStderr(true)
+                .withAttachStdin(true)
+                .exec();
+        log.info("创建执行命令：{}", execCreateCmdResponse);
+        final String[] message = {null};
+        final String[] errorMessage = {null};
+        long time = 0L;
+        // 判断是否超时，实际情况下只用调用 timeout[0]
+        final boolean[] timeout = {true};
+        String execId = execCreateCmdResponse.getId();
+        ExecStartResultCallback execStartResultCallback = new ExecStartResultCallback() {
+            @Override
+            public void onNext(Frame frame) {
+                /*
+                 从 docker container 的输出流中得到结构信息，
+                 如果该信息隶属于错误信息，则执行失败，否则执行成功
+                */
+                StreamType streamType = frame.getStreamType();
+                if (StreamType.STDERR.equals(streamType)) {
+                    errorMessage[0] = new String(frame.getPayload());
+                    System.out.println("输出错误结果：" + errorMessage[0]);
+                } else {
+                    message[0] = new String(frame.getPayload());
+                    System.out.println("输出结果：" + message[0]);
+                }
+                super.onNext(frame);
+            }
+
+            @Override
+            public void onComplete() {
+                // 如果执行完成，则表示没有超时
+                timeout[0] = false;
+                super.onComplete();
+            }
+        };
+        final long[] maxMemory = {0L};
+        StatsCmd statsCmd = this.dockerClient.statsCmd(containerId);
+        ResultCallback<Statistics> statisticsResultCallback = statsCmd.exec(new ResultCallback<Statistics>() {
+            @Override
+            public void onNext(Statistics statistics) {
+                System.out.println("内存占用：" + statistics.getMemoryStats().getUsage());
+                maxMemory[0] = Math.max(statistics.getMemoryStats().getUsage(), maxMemory[0]);
+            }
+
+            @Override
+            public void onStart(Closeable closeable) {
+
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+
+            }
+
+            @Override
+            public void onComplete() {
+
+            }
+
+            @Override
+            public void close() throws IOException {
+
+            }
+        });
+        statsCmd.exec(statisticsResultCallback);
+        StopWatch stopWatch = new StopWatch();
+
+        try {
+            stopWatch.start();
+            this.dockerClient.execStartCmd(execId)
+                    .exec(execStartResultCallback)
+                    .awaitCompletion(this.timeOut, TimeUnit.MILLISECONDS);
+            stopWatch.stop();
+            time = stopWatch.getLastTaskTimeMillis();
+            statsCmd.close();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        executeMessage.setNormalMessage(message[0]);
+        executeMessage.setErrorMessage(errorMessage[0]);
+        executeMessage.setTime(time);
+        executeMessage.setMemory(maxMemory[0]);
+
+        return executeMessage;
     }
 
     @Override
@@ -174,6 +272,20 @@ public class DockerManager implements ApplicationRunner {
         }
     }
 
+    public String getJdkImageName() {
+        List<String> jdkImageNames = new ArrayList<>();
+        for (String imageName : defaultImages) {
+            if (imageName.contains("jdk")) {
+                jdkImageNames.add(imageName);
+            }
+        }
+        if (jdkImageNames.size() > 1) {
+            log.warn("Multiple JDK images found: {}, the first defined jdk: {} will be Available"
+                    , jdkImageNames, jdkImageNames.get(0));
+        }
+        return jdkImageNames.get(0);
+    }
+
     public CreateContainerResponse createContainer(String imageName, HostConfig hostConfig) {
         if (this.dockerClient == null) {
             log.error("Docker client not initialized");
@@ -186,6 +298,8 @@ public class DockerManager implements ApplicationRunner {
                 .withAttachStdin(true)
                 .withAttachStdout(true)
                 .withAttachStderr(true)
+                .withNetworkDisabled(true)
+                .withReadonlyRootfs(true)
                 .withTty(true)
                 .exec();
         log.info("Docker container created: {}", createContainerResponse);

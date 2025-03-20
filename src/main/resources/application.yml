@@ -6,6 +6,7 @@ server:
 codesandbox:
   compile-config:
     java-class-name: Main.java
+    timeout: 5000
   docker:
     auto-pull-images: true
     default-images:

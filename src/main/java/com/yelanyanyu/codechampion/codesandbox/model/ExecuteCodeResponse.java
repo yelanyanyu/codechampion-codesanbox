@@ -17,7 +17,7 @@ import java.util.List;
 @NoArgsConstructor
 @Data
 public class ExecuteCodeResponse {
-    private List<String> output;
+    private List<String> outputList;
     /**
      * 程序执行信息
      */
