@@ -1,8 +1,8 @@
-package com.yelanyanyu.codechampion.codesanbox;
+package com.yelanyanyu.codechampion.codesandbox;
 
 import cn.hutool.core.io.resource.ResourceUtil;
-import com.yelanyanyu.codechampion.codesanbox.model.ExecuteCodeRequest;
-import com.yelanyanyu.codechampion.codesanbox.model.ExecuteCodeResponse;
+import com.yelanyanyu.codechampion.codesandbox.model.ExecuteCodeRequest;
+import com.yelanyanyu.codechampion.codesandbox.model.ExecuteCodeResponse;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -11,7 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 @SpringBootTest
-class CodechampionCodesanboxApplicationTests {
+class CodechampionCodesandboxApplicationTests {
 	@Resource
 	private JavaNativeCodeSandbox javaNativeCodeSandbox;
 

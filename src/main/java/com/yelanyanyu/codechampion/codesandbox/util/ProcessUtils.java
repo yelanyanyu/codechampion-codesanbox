@@ -1,9 +1,9 @@
-package com.yelanyanyu.codechampion.codesanbox.util;
+package com.yelanyanyu.codechampion.codesandbox.util;
 
 
 import cn.hutool.core.date.StopWatch;
 import cn.hutool.core.util.StrUtil;
-import com.yelanyanyu.codechampion.codesanbox.model.ExecuteMessage;
+import com.yelanyanyu.codechampion.codesandbox.model.ExecuteMessage;
 
 import java.io.*;
 import java.util.stream.Collectors;

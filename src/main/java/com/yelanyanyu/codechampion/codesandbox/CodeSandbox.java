@@ -1,8 +1,8 @@
-package com.yelanyanyu.codechampion.codesanbox;
+package com.yelanyanyu.codechampion.codesandbox;
 
 
-import com.yelanyanyu.codechampion.codesanbox.model.ExecuteCodeRequest;
-import com.yelanyanyu.codechampion.codesanbox.model.ExecuteCodeResponse;
+import com.yelanyanyu.codechampion.codesandbox.model.ExecuteCodeRequest;
+import com.yelanyanyu.codechampion.codesandbox.model.ExecuteCodeResponse;
 
 /**
  * @author yelanyanyu@zjxu.edu.cn

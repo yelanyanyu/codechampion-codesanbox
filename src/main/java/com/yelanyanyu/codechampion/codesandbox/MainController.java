@@ -1,4 +1,4 @@
-package com.yelanyanyu.codechampion.codesanbox;
+package com.yelanyanyu.codechampion.codesandbox;
 
 
 import org.springframework.stereotype.Controller;

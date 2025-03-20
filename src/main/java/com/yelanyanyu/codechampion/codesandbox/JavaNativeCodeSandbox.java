@@ -1,38 +1,31 @@
-package com.yelanyanyu.codechampion.codesanbox;
+package com.yelanyanyu.codechampion.codesandbox;
 
 
-import ch.qos.logback.core.util.StringUtil;
 import cn.hutool.core.io.FileUtil;
-import cn.hutool.core.io.resource.ResourceUtil;
 import cn.hutool.core.util.StrUtil;
-import com.yelanyanyu.codechampion.codesanbox.model.ExecuteCodeRequest;
-import com.yelanyanyu.codechampion.codesanbox.model.ExecuteCodeResponse;
-import com.yelanyanyu.codechampion.codesanbox.model.ExecuteMessage;
-import com.yelanyanyu.codechampion.codesanbox.model.JudgeInfo;
-import com.yelanyanyu.codechampion.codesanbox.util.ProcessUtils;
+import com.yelanyanyu.codechampion.codesandbox.model.ExecuteCodeRequest;
+import com.yelanyanyu.codechampion.codesandbox.model.ExecuteCodeResponse;
+import com.yelanyanyu.codechampion.codesandbox.model.ExecuteMessage;
+import com.yelanyanyu.codechampion.codesandbox.model.JudgeInfo;
+import com.yelanyanyu.codechampion.codesandbox.util.ProcessUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
-import static com.yelanyanyu.codechampion.codesanbox.util.ProcessUtils.runProcessAndGetMsg;
-import static com.yelanyanyu.codechampion.codesanbox.util.ProcessUtils.runProcessAndGetMsgWithInteraction;
+import static com.yelanyanyu.codechampion.codesandbox.util.ProcessUtils.runProcessAndGetMsg;
 
 /**
  * @author yelanyanyu@zjxu.edu.cn
  * @version 1.0
  */
 @Component
-public class JavaNativeCodeSandbox implements CodeSandbox {
+public class JavaNativeCodeSandbox implements com.yelanyanyu.codechampion.codesandbox.CodeSandbox {
     private static final String GLOBAL_CODE_DIR_NAME = "tmpCode";
     private static final String GLOBAL_JAVA_CLASS_NAME = "Main.java";
     @Value("${codesandbox.compile-config.java-class-name}")
@@ -54,7 +47,7 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
         String code = executeCodeRequest.getCode();
         String language = executeCodeRequest.getLanguage();
 
-        // 返回项目的根目录: D:\myCode\formal-projects\codechampion-codesanbox
+        // 返回项目的根目录: D:\myCode\formal-projects\codechampion-codesandbox
         String userDir = System.getProperty("user.dir");
         // 用于存储用户提交代码的总目录
         String globalCodePathName = userDir + File.separator + GLOBAL_CODE_DIR_NAME;

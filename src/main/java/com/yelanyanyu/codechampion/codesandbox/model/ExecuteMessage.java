@@ -1,4 +1,4 @@
-package com.yelanyanyu.codechampion.codesanbox.model;
+package com.yelanyanyu.codechampion.codesandbox.model;
 
 
 import lombok.Data;

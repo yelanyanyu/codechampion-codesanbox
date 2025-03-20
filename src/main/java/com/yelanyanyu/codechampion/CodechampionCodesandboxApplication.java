@@ -4,10 +4,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class CodechampionCodesanboxApplication {
+public class CodechampionCodesandboxApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(CodechampionCodesanboxApplication.class, args);
+		SpringApplication.run(CodechampionCodesandboxApplication.class, args);
 	}
 
 }
