@@ -3,6 +3,10 @@ package com.yelanyanyu.codechampion.codesandbox;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
+import com.github.dockerjava.api.command.CreateContainerResponse;
+import com.github.dockerjava.api.model.Bind;
+import com.github.dockerjava.api.model.HostConfig;
+import com.github.dockerjava.api.model.Volume;
 import com.yelanyanyu.codechampion.codesandbox.manager.DockerManager;
 import com.yelanyanyu.codechampion.codesandbox.model.ExecuteCodeRequest;
 import com.yelanyanyu.codechampion.codesandbox.model.ExecuteCodeResponse;
@@ -43,8 +47,12 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
         1. 利用 `javac` 命令对 `Main.java` 进行编译；
         2. 启动 docker 容器：
             1. 如果没有 jdk-8 镜像，你们就从远程拉取，并且做好记号；
-        1. 执行成功，则将控制台输出格式化填入 response，并且返回控制台信息赋值给 message，和 judgeInfo。
-        2. 如果执行失败，则从从控制台获取失败信息填入 response；
+        3. 创建 docker 容器；
+        4. 启动容器；
+        5. 执行命令获取结果；
+        6. 获取占用内存；
+        7. 封装结果，跟原生方法实现一致；
+        8. 文件清理；
 */
         ExecuteCodeResponse executeCodeResponse = new ExecuteCodeResponse();
 
@@ -75,11 +83,19 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
             throw new RuntimeException(e);
         }
 
+        // 3：创建容器
+        String image = "openjdk:8-alpine";
+        HostConfig hostConfig = new HostConfig();
+        hostConfig.withMemory(100 * 1000 * 1000L);
+        hostConfig.withCpuCount(1L);
+        hostConfig.setBinds(new Bind(userCodeParentPathDir, new Volume("/app")));
+        CreateContainerResponse createContainerResponse = dockerManager.createContainer(image, hostConfig);
+        String containerId = createContainerResponse.getId();
 
-
-
-        // 执行代码
-        List<ExecuteMessage> executeMessages = new ArrayList<>();
+        // 4. 启动容器
+        dockerManager.startContainer(containerId);
+        // 5. 执行命令并获取结果
+        List<ExecuteMessage> executeMessageList = new ArrayList<>();
         for (String inputArgs : inputList) {
             String runCmd = String.format("java -Dfile.encoding=UTF-8 -cp %s Main %s", userCodeParentPathDir, inputArgs);
             try {
@@ -87,7 +103,7 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
                 ExecuteMessage executeMessage = runProcessAndGetMsg(runProcess, "运行");
 //                ExecuteMessage executeMessage = runProcessAndGetMsgWithInteraction(runProcess, "1 2");
                 System.out.println(executeMessage);
-                executeMessages.add(executeMessage);
+                executeMessageList.add(executeMessage);
             } catch (IOException | InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -95,7 +111,7 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
         // 收集信息
         List<String> outputList = new ArrayList<>();
         long maxTime = 0;
-        for (ExecuteMessage executeMessage : executeMessages) {
+        for (ExecuteMessage executeMessage : executeMessageList) {
             String errorMessage = executeMessage.getErrorMessage();
             if (!StrUtil.isBlankIfStr(errorMessage)) {
                 executeCodeResponse.setMessage(errorMessage);
@@ -109,7 +125,7 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
             }
         }
 
-        if (outputList.size() == executeMessages.size()) {
+        if (outputList.size() == executeMessageList.size()) {
             executeCodeResponse.setStatus(1);
         }
         executeCodeResponse.setOutput(outputList);

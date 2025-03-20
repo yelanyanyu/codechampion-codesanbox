@@ -12,6 +12,7 @@ import com.github.dockerjava.core.DockerClientImpl;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
 import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
 import com.github.dockerjava.transport.DockerHttpClient;
+import com.yelanyanyu.codechampion.codesandbox.manager.DockerManager;
 import com.yelanyanyu.codechampion.codesandbox.util.DockerUtil;
 
 import java.time.Duration;
@@ -24,6 +25,7 @@ import java.util.List;
 public class DockerDemo {
     public static void main(String[] args) throws InterruptedException {
         //获取默认的Docker Client
+        DockerManager dockerManager = new DockerManager();
         DockerClient dockerClient = DockerUtil.openDockerClient();
         PingCmd pingCmd = dockerClient.pingCmd();
         pingCmd.exec();

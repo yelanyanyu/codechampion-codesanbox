@@ -10,6 +10,8 @@ import com.github.dockerjava.transport.DockerHttpClient;
 import java.time.Duration;
 
 /**
+ * todo: for test, will be delete when deploying.
+ *
  * @author yelanyanyu@zjxu.edu.cn
  * @version 1.0
  */

@@ -7,6 +7,7 @@ codesandbox:
   compile-config:
     java-class-name: Main.java
   docker:
+    auto-pull-images: true
     default-images:
       - openjdk:8-alpine
 
