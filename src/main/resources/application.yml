@@ -8,6 +8,7 @@ codesandbox:
     java-class-name: Main.java
     timeout: 5000
   docker:
+    # 若 docker中没有对应 default-image 则会自动拉取
     auto-pull-images: true
     default-images:
       - openjdk:8-alpine

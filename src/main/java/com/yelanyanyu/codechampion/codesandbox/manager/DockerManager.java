@@ -18,6 +18,7 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.support.ManagedProperties;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -27,9 +28,7 @@ import javax.annotation.PreDestroy;
 import java.io.Closeable;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -48,6 +47,15 @@ public class DockerManager implements ApplicationRunner {
     private DockerClient dockerClient;
     @Value("${codesandbox.compile-config.timeout}")
     private Long timeOut;
+    /**
+     * 存储所有启动的 container
+     */
+    private List<String> containerIds = new ArrayList<>();
+    /**
+     * key: imageName
+     * value: 是否存在于 docker 中
+     */
+    private Map<String, Boolean> imageToExist = new HashMap<>();
 
     private static DockerClient openDockerClient() {
         DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().build();
@@ -60,6 +68,35 @@ public class DockerManager implements ApplicationRunner {
                 .build();
 
         return DockerClientImpl.getInstance(config, httpClient);
+    }
+
+    /**
+     * 查询所有已经存在的 images，将其加入 imageToExist 中，防止重复拉取
+     */
+    private void checkAllExistImages() {
+        if (dockerClient == null) {
+            log.error("Docker client not initialized");
+            return;
+        }
+
+        try {
+            List<Image> images = dockerClient.listImagesCmd().exec();
+
+            for (Image image : images) {
+                if (image.getRepoTags() != null) {
+                    for (String tag : image.getRepoTags()) {
+                        // Skip <none>:<none> images
+                        if (!"<none>:<none>".equals(tag)) {
+                            imageToExist.put(tag, true);
+                            log.info("Found existing Docker image: {}", tag);
+                        }
+                    }
+                }
+            }
+            log.info("Found {} existing Docker images", imageToExist.size());
+        } catch (Exception e) {
+            log.error("Error checking for existing Docker images: {}", e.getMessage());
+        }
     }
 
     public ExecuteMessage executeCommand(String[] cmdArray, String containerId) {
@@ -156,6 +193,7 @@ public class DockerManager implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) throws Exception {
         initDockerClient();
+        checkAllExistImages();
         checkJdkImageAvailability();
 
         // Add shutdown hook for crash scenarios
@@ -222,6 +260,9 @@ public class DockerManager implements ApplicationRunner {
         }
     }
 
+    /**
+     * 判断是否有 jdk image 存在
+     */
     private void checkJdkImageAvailability() {
         if (dockerClient == null) {
             log.error("Docker client not initialized");
@@ -255,10 +296,14 @@ public class DockerManager implements ApplicationRunner {
         if (dockerClient != null && defaultImages != null && !defaultImages.isEmpty()) {
             for (String imageName : defaultImages) {
                 try {
+                    if (imageToExist.containsKey(imageName) || imageToExist.get(imageName)) {
+                        continue;
+                    }
                     log.info("Pulling Docker image: {}", imageName);
                     dockerClient.pullImageCmd(imageName)
                             .exec(new PullImageResultCallback())
                             .awaitCompletion();
+                    imageToExist.put(imageName, true);
                     log.info("Docker image successfully pulled: {}", imageName);
 
                     // Set JDK image flag if this is a JDK image (you may need to adjust this condition)
@@ -294,7 +339,6 @@ public class DockerManager implements ApplicationRunner {
         CreateContainerCmd containerCmd = this.dockerClient.createContainerCmd(imageName);
         CreateContainerResponse createContainerResponse = containerCmd
                 .withHostConfig(hostConfig)
-//                .withHostConfig(hostConfig.withAutoRemove(true))
                 .withAttachStdin(true)
                 .withAttachStdout(true)
                 .withAttachStderr(true)
@@ -309,6 +353,8 @@ public class DockerManager implements ApplicationRunner {
     public void startContainer(String containerId) {
         try {
             this.dockerClient.startContainerCmd(containerId).exec();
+            this.containerIds.add(containerId);
+            log.info("Container started: {}", containerId);
         } catch (NotFoundException | NotModifiedException e) {
             log.error("Failed to start container: {}", e.getMessage());
         }
@@ -318,7 +364,12 @@ public class DockerManager implements ApplicationRunner {
     public void close() {
         if (dockerClient != null) {
             try {
-                dockerClient.close();
+                // 当springboot 实例关闭后，自动停止容器运行
+                for (String containerId : this.containerIds) {
+                    this.dockerClient.stopContainerCmd(containerId).exec();
+                    log.info("Container stopped: {}", containerId);
+                }
+                this.dockerClient.close();
                 log.info("Docker client is closed");
             } catch (IOException e) {
                 log.error("Error closing Docker client: {}", e.getMessage());

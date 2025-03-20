@@ -8,6 +8,7 @@ import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Volume;
 import com.yelanyanyu.codechampion.codesandbox.model.ExecuteMessage;
+import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
@@ -21,6 +22,7 @@ import static com.yelanyanyu.codechampion.codesandbox.util.ProcessUtils.runProce
  * @author yelanyanyu@zjxu.edu.cn
  * @version 1.0
  */
+@Component
 public class JavaDockerCodeSandbox extends JavaCodeSandboxTemplate {
     @Override
     public List<ExecuteMessage> runFile(File userCodeFile, List<String> inputList) {
@@ -30,6 +32,7 @@ public class JavaDockerCodeSandbox extends JavaCodeSandboxTemplate {
         hostConfig.withMemory(100 * 1000 * 1000L);
         hostConfig.withCpuCount(1L);
         hostConfig.withMemorySwap(0L);
+        hostConfig.withAutoRemove(true);
 //        hostConfig.withSecurityOpts(Arrays.asList("seccomp="));
         hostConfig.setBinds(new Bind(userCodeParentPathDir, new Volume("/app")));
         String image = dockerManager.getJdkImageName();
