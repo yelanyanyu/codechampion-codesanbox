@@ -2,7 +2,6 @@ package com.yelanyanyu.codechampion.codesandbox.model;
 
 
 import lombok.Data;
-import org.apache.logging.log4j.message.Message;
 
 /**
  * @author yelanyanyu@zjxu.edu.cn

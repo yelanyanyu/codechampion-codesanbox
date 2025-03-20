@@ -6,3 +6,7 @@ server:
 codesandbox:
   compile-config:
     java-class-name: Main.java
+  docker:
+    default-images:
+      - openjdk:8-alpine
+
