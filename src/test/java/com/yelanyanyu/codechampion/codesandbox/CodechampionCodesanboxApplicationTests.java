@@ -18,7 +18,7 @@ class CodechampionCodesandboxApplicationTests {
 	@Test
 	void contextLoads() {
 		ExecuteCodeRequest executeCodeRequest = new ExecuteCodeRequest();
-		executeCodeRequest.setInput(Arrays.asList("1 2", "3 4"));
+		executeCodeRequest.setInputList(Arrays.asList("1 2", "3 4"));
 		String code = ResourceUtil.readStr("simpleCompute/Main.java", StandardCharsets.UTF_8);
 		executeCodeRequest.setCode(code);
 		executeCodeRequest.setLanguage("java");

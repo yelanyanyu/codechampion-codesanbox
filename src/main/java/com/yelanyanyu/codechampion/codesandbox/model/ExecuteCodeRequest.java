@@ -16,7 +16,7 @@ import java.util.List;
 @NoArgsConstructor
 @Data
 public class ExecuteCodeRequest {
-    private List<String> input;
+    private List<String> inputList;
     private String code;
     private String language;
 }

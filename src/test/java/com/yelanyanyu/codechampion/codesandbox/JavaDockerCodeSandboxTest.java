@@ -11,8 +11,6 @@ import javax.annotation.Resource;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 /**
  * @author yelanyanyu@zjxu.edu.cn
  * @version 1.0
@@ -25,7 +23,7 @@ class JavaDockerCodeSandboxTest {
     @Test
     void dockerCodeSandbox() {
         ExecuteCodeRequest executeCodeRequest = new ExecuteCodeRequest();
-        executeCodeRequest.setInput(Arrays.asList("1 2", "3 4"));
+        executeCodeRequest.setInputList(Arrays.asList("1 2", "3 4"));
         String code = ResourceUtil.readStr("simpleCompute/Main.java", StandardCharsets.UTF_8);
         executeCodeRequest.setCode(code);
         executeCodeRequest.setLanguage("java");

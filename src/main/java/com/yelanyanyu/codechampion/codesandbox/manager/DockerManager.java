@@ -17,6 +17,7 @@ import com.yelanyanyu.codechampion.codesandbox.model.ExecuteMessage;
 import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.support.ManagedProperties;
 import org.springframework.boot.ApplicationArguments;
@@ -39,7 +40,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @ConfigurationProperties(prefix = "codesandbox.docker")
 @Data
-public class DockerManager implements ApplicationRunner {
+public class DockerManager implements ApplicationRunner, DisposableBean {
     private boolean autoPullImages;
     private List<String> defaultImages;
     private boolean jdkImageAvailable = false;
@@ -141,7 +142,7 @@ public class DockerManager implements ApplicationRunner {
         };
         final long[] maxMemory = {0L};
         StatsCmd statsCmd = this.dockerClient.statsCmd(containerId);
-        ResultCallback<Statistics> statisticsResultCallback = statsCmd.exec(new ResultCallback<Statistics>() {
+        ResultCallback<Statistics> statisticsResultCallback = statsCmd.exec(new ResultCallback.Adapter<Statistics>() {
             @Override
             public void onNext(Statistics statistics) {
                 System.out.println("内存占用：" + statistics.getMemoryStats().getUsage());
@@ -170,8 +171,8 @@ public class DockerManager implements ApplicationRunner {
         });
         statsCmd.exec(statisticsResultCallback);
         StopWatch stopWatch = new StopWatch();
-
         try {
+            Thread.sleep(1000);
             stopWatch.start();
             this.dockerClient.execStartCmd(execId)
                     .exec(execStartResultCallback)
@@ -196,11 +197,12 @@ public class DockerManager implements ApplicationRunner {
         checkAllExistImages();
         checkJdkImageAvailability();
 
-        // Add shutdown hook for crash scenarios
-//        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-//            log.info("Application terminating - running shutdown hook");
+//         Add shutdown hook for crash scenarios
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            log.info("Application terminating - running shutdown hook");
 //            cleanupDockerResources();
-//        }));
+            close();
+        }));
         if (autoPullImages) {
             pullImages();
             return;
@@ -360,7 +362,7 @@ public class DockerManager implements ApplicationRunner {
         }
     }
 
-    @PreDestroy
+
     public void close() {
         if (dockerClient != null) {
             try {
@@ -375,5 +377,10 @@ public class DockerManager implements ApplicationRunner {
                 log.error("Error closing Docker client: {}", e.getMessage());
             }
         }
+    }
+
+    @Override
+    public void destroy() throws Exception {
+//        close();
     }
 }

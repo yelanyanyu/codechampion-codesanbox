@@ -56,7 +56,7 @@ public class JavaDockerCodeSandboxOld implements CodeSandbox {
 */
         ExecuteCodeResponse executeCodeResponse = new ExecuteCodeResponse();
 
-        List<String> inputList = executeCodeRequest.getInput();
+        List<String> inputList = executeCodeRequest.getInputList();
         String code = executeCodeRequest.getCode();
         String language = executeCodeRequest.getLanguage();
 
