@@ -362,6 +362,58 @@ public class DockerManager implements ApplicationRunner, DisposableBean {
         }
     }
 
+    /**
+     * 删除指定的Docker容器
+     *
+     * @param containerId 要删除的容器ID
+     * @return 是否成功删除
+     */
+    public boolean removeContainer(String containerId) {
+        if (dockerClient == null) {
+            log.error("Docker client not initialized");
+            return false;
+        }
+
+        try {
+            // 先尝试停止容器（如果它正在运行）
+            try {
+                log.info("Stopping container: {}", containerId);
+                dockerClient.stopContainerCmd(containerId)
+                        .withTimeout(10) // 10秒超时
+                        .exec();
+            } catch (NotModifiedException e) {
+                // 容器已经停止，可以忽略这个异常
+                log.debug("Container {} already stopped", containerId);
+            } catch (NotFoundException e) {
+                log.warn("Container {} not found, cannot stop", containerId);
+                return false;
+            } catch (Exception e) {
+                log.warn("Error stopping container {}: {}", containerId, e.getMessage());
+                // 继续尝试删除容器
+            }
+
+            // 删除容器
+            log.info("Removing container: {}", containerId);
+            dockerClient.removeContainerCmd(containerId)
+                    .withForce(true) // 强制删除，即使正在运行
+                    .withRemoveVolumes(true) // 同时删除关联的匿名卷
+                    .exec();
+
+            // 从容器ID列表中移除
+            containerIds.remove(containerId);
+            log.info("Container removed successfully: {}", containerId);
+
+            return true;
+        } catch (NotFoundException e) {
+            log.warn("Container {} not found, cannot remove", containerId);
+            // 容器不存在，从列表中移除ID
+            containerIds.remove(containerId);
+            return false;
+        } catch (Exception e) {
+            log.error("Failed to remove container {}: {}", containerId, e.getMessage());
+            return false;
+        }
+    }
 
     public void close() {
         if (dockerClient != null) {
@@ -384,3 +436,4 @@ public class DockerManager implements ApplicationRunner, DisposableBean {
 //        close();
     }
 }
+

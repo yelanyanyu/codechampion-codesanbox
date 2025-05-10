@@ -30,4 +30,15 @@ class JavaDockerCodeSandboxTest {
         ExecuteCodeResponse executeCodeResponse = javaDockerCodeSandbox.execute(executeCodeRequest);
         System.out.println(executeCodeResponse);
     }
+
+    @Test
+    void dockerCodeSandboxOfSimpleComputeArgs() {
+        ExecuteCodeRequest executeCodeRequest = new ExecuteCodeRequest();
+        executeCodeRequest.setInputList(Arrays.asList("1 2", "3 4"));
+        String code = ResourceUtil.readStr("simpleComputeArgs/Main.java", StandardCharsets.UTF_8);
+        executeCodeRequest.setCode(code);
+        executeCodeRequest.setLanguage("java");
+        ExecuteCodeResponse executeCodeResponse = javaDockerCodeSandbox.execute(executeCodeRequest);
+        System.out.println(executeCodeResponse);
+    }
 }
