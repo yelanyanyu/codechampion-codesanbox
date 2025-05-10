@@ -4,10 +4,7 @@ package com.yelanyanyu.codechampion.codesandbox;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
 import com.yelanyanyu.codechampion.codesandbox.manager.DockerManager;
-import com.yelanyanyu.codechampion.codesandbox.model.ExecuteCodeRequest;
-import com.yelanyanyu.codechampion.codesandbox.model.ExecuteCodeResponse;
-import com.yelanyanyu.codechampion.codesandbox.model.ExecuteMessage;
-import com.yelanyanyu.codechampion.codesandbox.model.JudgeInfo;
+import com.yelanyanyu.codechampion.codesandbox.model.*;
 import com.yelanyanyu.codechampion.codesandbox.util.ProcessUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -95,6 +92,7 @@ public abstract class JavaCodeSandboxTemplate implements CodeSandbox {
     public ExecuteCodeResponse getOutputResponse(List<ExecuteMessage> executeMessageList) {
         ExecuteCodeResponse executeCodeResponse = new ExecuteCodeResponse();
         List<String> outputList = new ArrayList<>();
+        JudgeInfo judgeInfo = new JudgeInfo();
         long maxTime = 0;
         long maxMemory = 0;
         for (ExecuteMessage executeMessage : executeMessageList) {
@@ -119,7 +117,7 @@ public abstract class JavaCodeSandboxTemplate implements CodeSandbox {
             executeCodeResponse.setStatus(1);
         }
         executeCodeResponse.setOutputList(outputList);
-        JudgeInfo judgeInfo = new JudgeInfo();
+
         judgeInfo.setTime(maxTime);
         judgeInfo.setMemory(maxMemory);
         executeCodeResponse.setJudgeInfo(judgeInfo);
@@ -136,28 +134,67 @@ public abstract class JavaCodeSandboxTemplate implements CodeSandbox {
         return true;
     }
 
-
     @Override
     public ExecuteCodeResponse execute(ExecuteCodeRequest executeCodeRequest) {
-        ExecuteCodeResponse executeCodeResponse = new ExecuteCodeResponse();
+        try {
+            List<String> inputList = executeCodeRequest.getInputList();
+            String code = executeCodeRequest.getCode();
+            String language = executeCodeRequest.getLanguage();
 
-        List<String> inputList = executeCodeRequest.getInputList();
-        String code = executeCodeRequest.getCode();
-        String language = executeCodeRequest.getLanguage();
+            File userCodeFile = saveCodeToFile(code);
 
-        File userCodeFile = saveCodeToFile(code);
+            // 编译代码
+            ExecuteMessage compileMessage = compileFile(userCodeFile);
+            log.info("compileMsg: {}", compileMessage);
 
-        ExecuteMessage executeMessage = compileFile(userCodeFile);
-        log.info("compileMsg: {}", executeMessage);
-        List<ExecuteMessage> executeMessageList = runFile(userCodeFile, inputList);
+            // 编译错误处理
+            if (compileMessage != null && !StrUtil.isBlankIfStr(compileMessage.getErrorMessage())) {
+                // 有编译错误
+                ExecuteCodeResponse errorResponse = getCompileErrorResponse(compileMessage);
+                // 删除用户代码文件
+                deleteCodeFile(userCodeFile);
+                return errorResponse;
+            }
 
-        ExecuteCodeResponse outputResponse = getOutputResponse(executeMessageList);
+            // 运行代码
+            List<ExecuteMessage> executeMessageList = runFile(userCodeFile, inputList);
 
-        boolean b = deleteCodeFile(userCodeFile);
-        if (!b) {
-            log.error("deleteFile error,userCodeFilePath = {}", userCodeFile.getAbsolutePath());
+            // 获取输出结果
+            ExecuteCodeResponse outputResponse = getOutputResponse(executeMessageList);
+
+            // 删除用户代码文件
+            boolean b = deleteCodeFile(userCodeFile);
+            if (!b) {
+                log.error("deleteFile error,userCodeFilePath = {}", userCodeFile.getAbsolutePath());
+            }
+            return outputResponse;
+        } catch (Exception e) {
+            log.error("代码执行异常", e);
+            return getErrorResponse(e);
         }
-        return outputResponse;
+    }
+
+    /**
+     * 处理编译错误，生成编译错误响应
+     *
+     * @param compileMessage 编译信息
+     * @return 编译错误响应
+     */
+    private ExecuteCodeResponse getCompileErrorResponse(ExecuteMessage compileMessage) {
+        ExecuteCodeResponse executeCodeResponse = new ExecuteCodeResponse();
+        executeCodeResponse.setOutputList(new ArrayList<>());
+        executeCodeResponse.setMessage("编译错误: " + compileMessage.getErrorMessage());
+        // 状态码2表示代码编译错误
+        executeCodeResponse.setStatus(2);
+
+        // 设置编译错误的判题信息
+        JudgeInfo judgeInfo = new JudgeInfo();
+        judgeInfo.setMessage(JudgeInfoMessageEnum.COMPILE_ERROR.getValue());
+        judgeInfo.setTime(0L);
+        judgeInfo.setMemory(0L);
+        executeCodeResponse.setJudgeInfo(judgeInfo);
+        
+        return executeCodeResponse;
     }
 
     /**
@@ -170,8 +207,8 @@ public abstract class JavaCodeSandboxTemplate implements CodeSandbox {
         ExecuteCodeResponse executeCodeResponse = new ExecuteCodeResponse();
         executeCodeResponse.setOutputList(new ArrayList<>());
         executeCodeResponse.setMessage(e.getMessage());
-        //表示代码沙箱错误（可能是编译错误）
-        executeCodeResponse.setStatus(2);
+        //表示代码沙箱错误（系统错误）
+        executeCodeResponse.setStatus(3);
         executeCodeResponse.setJudgeInfo(new JudgeInfo());
         return executeCodeResponse;
     }

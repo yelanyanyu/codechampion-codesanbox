@@ -30,6 +30,16 @@ public class JavaDockerCodeSandbox extends JavaCodeSandboxTemplate {
 
     @Override
     public List<ExecuteMessage> runFile(File userCodeFile, List<String> inputList) {
+        // 先检查类文件是否存在，如果编译失败则不需要运行
+        File classFile = new File(userCodeFile.getParent(), "Main.class");
+        if (!classFile.exists()) {
+            ExecuteMessage errorMessage = new ExecuteMessage();
+            errorMessage.setErrorMessage("编译失败，无法运行代码");
+            ArrayList<ExecuteMessage> result = new ArrayList<>();
+            result.add(errorMessage);
+            return result;
+        }
+
         String userCodeParentPathDir = userCodeFile.getParentFile().getAbsolutePath();
 
         if (useReusableContainer) {
@@ -115,3 +125,4 @@ public class JavaDockerCodeSandbox extends JavaCodeSandboxTemplate {
         this.useReusableContainer = useReusableContainer;
     }
 }
+
